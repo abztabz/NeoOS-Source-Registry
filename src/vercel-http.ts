@@ -5,8 +5,21 @@ const MAX_BODY_BYTES = 32 * 1024;
 
 type VercelLikeRequest = IncomingMessage & { body?: unknown; query?: Record<string, string | string[] | undefined> };
 
+function enforceDeclaredBodyLimit(request: IncomingMessage): void {
+  const raw = request.headers["content-length"];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  const length = Number(value ?? 0);
+  if (Number.isFinite(length) && length > MAX_BODY_BYTES) throw new Error("REQUEST_BODY_TOO_LARGE");
+}
+
 async function readBoundedBody(request: VercelLikeRequest): Promise<unknown> {
-  if (request.body !== undefined) return request.body;
+  enforceDeclaredBodyLimit(request);
+  if (request.body !== undefined) {
+    let encoded = "";
+    try { encoded = JSON.stringify(request.body); } catch { throw new Error("INVALID_JSON"); }
+    if (Buffer.byteLength(encoded, "utf8") > MAX_BODY_BYTES) throw new Error("REQUEST_BODY_TOO_LARGE");
+    return request.body;
+  }
   const chunks: Buffer[] = [];
   let total = 0;
   for await (const chunk of request) {
