@@ -1,7 +1,7 @@
 const MAXIMUM_RESPONSE_BYTES = 1_000_000;
 export type ProviderFetcher = typeof fetch;
 
-export async function fetchProviderJson(url: URL, options: { fetcher?: ProviderFetcher; timeoutMs?: number; headers?: Record<string, string>; allowedOrigin: string }): Promise<Record<string, unknown>> {
+async function fetchJsonValue(url: URL, options: { fetcher?: ProviderFetcher; timeoutMs?: number; headers?: Record<string, string>; allowedOrigin: string }): Promise<unknown> {
   if (url.protocol !== "https:" || url.origin !== options.allowedOrigin || url.username || url.password) throw new Error("Provider URL is outside the approved origin");
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), Math.min(Math.max(options.timeoutMs ?? 7_000, 1_000), 12_000));
@@ -12,10 +12,20 @@ export async function fetchProviderJson(url: URL, options: { fetcher?: ProviderF
     if (!contentType.includes("json")) throw new Error("Provider did not return JSON");
     const raw = await response.text();
     if (Buffer.byteLength(raw, "utf8") > MAXIMUM_RESPONSE_BYTES) throw new Error("Provider response is too large");
-    const parsed = JSON.parse(raw) as unknown;
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Provider JSON payload is invalid");
-    return parsed as Record<string, unknown>;
+    return JSON.parse(raw) as unknown;
   } finally { clearTimeout(timer); }
+}
+
+export async function fetchProviderJson(url: URL, options: { fetcher?: ProviderFetcher; timeoutMs?: number; headers?: Record<string, string>; allowedOrigin: string }): Promise<Record<string, unknown>> {
+  const parsed = await fetchJsonValue(url, options);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("Provider JSON payload is invalid");
+  return parsed as Record<string, unknown>;
+}
+
+export async function fetchProviderJsonValue(url: URL, options: { fetcher?: ProviderFetcher; timeoutMs?: number; headers?: Record<string, string>; allowedOrigin: string }): Promise<unknown> {
+  const parsed = await fetchJsonValue(url, options);
+  if (!parsed || typeof parsed !== "object") throw new Error("Provider JSON payload is invalid");
+  return parsed;
 }
 
 export function boundedQuery(value: unknown, maximum = 300): string {
