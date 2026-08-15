@@ -1,0 +1,1 @@
+Consumers should import the stable public surface rather than internal provider modules once package distribution is established. Provider-specific modules are implementation details except when developing/testing adapters inside this repository.
