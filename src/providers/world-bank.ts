@@ -1,4 +1,4 @@
-import { boundedQuery, fetchProviderJson, type ProviderFetcher } from "../http.js";
+import { boundedQuery, fetchProviderJsonValue, type ProviderFetcher } from "../http.js";
 import type { SourceProvider } from "../registry.js";
 
 export function worldBankAdapter(fetcher: ProviderFetcher = fetch) {
@@ -12,14 +12,14 @@ export function worldBankAdapter(fetcher: ProviderFetcher = fetch) {
     url.searchParams.set("per_page", String(limit));
     if (input.date) url.searchParams.set("date", boundedQuery(input.date, 30));
     if (input.mrv) url.searchParams.set("mrv", String(Math.min(Math.max(Number(input.mrv) || 1, 1), 20)));
-    const payload = await fetchProviderJson(url, { fetcher, allowedOrigin: new URL(provider.baseUrl).origin });
+    const payload = await fetchProviderJsonValue(url, { fetcher, allowedOrigin: new URL(provider.baseUrl).origin });
     const rows = Array.isArray(payload) && Array.isArray(payload[1]) ? payload[1] : [];
     const data = rows.flatMap((item) => {
       if (!item || typeof item !== "object" || Array.isArray(item)) return [];
       const row = item as Record<string, unknown>;
       const countryObj = row.country && typeof row.country === "object" && !Array.isArray(row.country) ? row.country as Record<string, unknown> : {};
       const indicatorObj = row.indicator && typeof row.indicator === "object" && !Array.isArray(row.indicator) ? row.indicator as Record<string, unknown> : {};
-      return [{ kind: "economic-indicator", country: boundedQuery(countryObj.value, 120), countryCode: boundedQuery(row.countryiso3code, 8), indicator: boundedQuery(indicatorObj.value, 200), indicatorCode: boundedQuery(row.indicator && (indicatorObj.id ?? indicator), 80), period: boundedQuery(row.date, 30), value: typeof row.value === "number" ? row.value : row.value ?? null, unit: boundedQuery(row.unit, 80), obsStatus: boundedQuery(row.obs_status, 40), verificationStatus: "official-source" }];
+      return [{ kind: "economic-indicator", country: boundedQuery(countryObj.value, 120), countryCode: boundedQuery(row.countryiso3code, 8), indicator: boundedQuery(indicatorObj.value, 200), indicatorCode: boundedQuery(indicatorObj.id ?? indicator, 80), period: boundedQuery(row.date, 30), value: typeof row.value === "number" ? row.value : row.value ?? null, unit: boundedQuery(row.unit, 80), obsStatus: boundedQuery(row.obs_status, 40), verificationStatus: "official-source" }];
     });
     return { data, sourceObservedAt: new Date().toISOString() };
   };
